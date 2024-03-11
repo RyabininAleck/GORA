@@ -20,7 +20,9 @@ func main() {
 	App.DB = db
 	App.ServerInterface = srv
 
-	//todo if err
-	App.Start(cfg.Port)
+	err := App.Start(cfg.Port)
+	if err != nil {
+		App.Stop()
+	}
 
 }

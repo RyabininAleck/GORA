@@ -12,6 +12,11 @@ type Photo struct {
 }
 
 func PreparePhoto(name string, Extension string, pathToOriginal string, pathToPreview string) Photo {
-
-	return Photo{0, name, time.Now().Unix(), Extension, pathToOriginal, pathToPreview}
+	return Photo{0,
+		name,
+		time.Now().Unix(),
+		Extension,
+		pathToOriginal,
+		pathToPreview,
+	}
 }

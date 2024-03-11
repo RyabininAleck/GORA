@@ -23,12 +23,16 @@ type DBInterface interface {
 	GetPhoto(id int) (Photo, error)
 	DelPhoto(id int) error
 	LoadPhoto(Photo) (int64, error)
+	Close() error
 }
 
 type ServerInterface interface {
 	Start(port string) error
 }
 
+func (a *App) Stop() {
+	a.DB.Close()
+}
 func (a *App) UploadPhotoHandler(c echo.Context) error {
 	// todo предусмотреть 413 Payload Too Large
 	// todo предусмотреть 422 неверный формат
@@ -85,12 +89,12 @@ func (a *App) DelPhotoHandler(c echo.Context) error {
 	ParamID := c.Param("id")
 	id, err := strconv.Atoi(ParamID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, err.Error()) //fixme
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
 	err = a.DB.DelPhoto(id)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, err.Error()) //fixme
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
 	return c.JSON(http.StatusOK, ParamID)
@@ -101,7 +105,7 @@ func (a *App) ShowPhotoHandler(c echo.Context) error {
 	ParamID := c.Param("id")
 	id, err := strconv.Atoi(ParamID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, err.Error()) //fixme
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
 	photo, err := a.DB.GetPhoto(id)
@@ -122,7 +126,7 @@ func (a *App) ShowPreviewHandler(c echo.Context) error {
 	ParamID := c.Param("id")
 	id, err := strconv.Atoi(ParamID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, err.Error()) //fixme
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
 	photo, err := a.DB.GetPhoto(id)

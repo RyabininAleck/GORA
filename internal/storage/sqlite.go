@@ -4,7 +4,6 @@ import (
 	"GORAbackend/internal/config"
 	"GORAbackend/internal/models"
 	"database/sql"
-	"fmt"
 	"os"
 )
 
@@ -71,7 +70,7 @@ func (sqlite *SqliteStorage) DelPhoto(id int) error {
 		return err
 	}
 
-	stmt, err := sqlite.Prepare("DELETE FROM photo WHERE id = ?")
+	stmt, err := sqlite.Prepare(sqlDelPhoto)
 	if err != nil {
 		return err
 	}
@@ -84,13 +83,11 @@ func (sqlite *SqliteStorage) DelPhoto(id int) error {
 
 	err = os.Remove(photo.ImgPath)
 	if err != nil {
-		fmt.Println("Ошибка при удалении файла:", err)
 		return err
 	}
 
 	err = os.Remove(photo.PrevPath)
 	if err != nil {
-		fmt.Println("Ошибка при удалении файла:", err)
 		return err
 	}
 
@@ -108,6 +105,7 @@ func (sqlite *SqliteStorage) LoadPhoto(p models.Photo) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	lastInsertID, err := result.LastInsertId()
 	if err != nil {
 		return 0, err
