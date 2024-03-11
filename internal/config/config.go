@@ -5,15 +5,17 @@ package config
 
 // но чтобы не переписывать сделаем мок
 type Config struct {
-	Port           string
-	DataSourcePath string
-	ImgFileStorage string
+	Port               string
+	DataSourcePath     string
+	ImgFileStorage     string
+	PreviewFileStorage string
 }
 
 func GetConfig() *Config {
 	return &Config{
-		Port:           ":5123",
-		DataSourcePath: "./storage/sqlite.db",
-		ImgFileStorage: "storage/images/", //todo
+		Port:               ":5123",
+		DataSourcePath:     "./storage/sqlite.db",
+		ImgFileStorage:     "storage/images/", //todo
+		PreviewFileStorage: "storage/preview/",
 	}
 }

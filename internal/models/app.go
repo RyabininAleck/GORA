@@ -2,6 +2,7 @@ package models
 
 import (
 	"GORAbackend/internal/config"
+	"github.com/disintegration/imaging"
 	"github.com/labstack/echo/v4"
 	"io"
 	"mime/multipart"
@@ -19,9 +20,9 @@ type App struct {
 
 type DBInterface interface {
 	GetPhotoList() ([]Photo, error)
-	GetPhoto() (Photo, error)
-	DelPhoto(id uint) error
-	LoadPhoto(Photo) error
+	GetPhoto(id int) (Photo, error)
+	DelPhoto(id int) error
+	LoadPhoto(Photo) (int64, error)
 }
 
 type ServerInterface interface {
@@ -30,67 +31,165 @@ type ServerInterface interface {
 
 func (a *App) UploadPhotoHandler(c echo.Context) error {
 	// todo предусмотреть 413 Payload Too Large
+	// todo предусмотреть 422 неверный формат
 
 	file, err := c.FormFile("image")
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	name := genFileName()       // todo cделать уникальным
-	err = imgToFile(file, name) //todo name, generate name
+	name := genFileName()
+
+	pathToOriginal, err := imgToFile(name, file, a.Config.ImgFileStorage+name+".jpg")
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	return c.String(http.StatusOK, "uploadPhotoHandler")
+	pathToPreview, err := previewToFile(name, pathToOriginal, a.Config.PreviewFileStorage+name+".jpg")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err)
+	}
+
+	data := PreparePhoto(name, "jpg", pathToOriginal, pathToPreview)
+	data.ID, err = a.DB.LoadPhoto(data)
+
+	return c.JSON(http.StatusOK, data)
 }
 
 func (a *App) GetPhotoListHandler(c echo.Context) error {
-	return c.String(http.StatusOK, "getPhotoListHandler")
+
+	photos, err := a.DB.GetPhotoList()
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err)
+	}
+
+	return c.JSON(http.StatusOK, photos)
 }
 
 func (a *App) GetPhotoHandler(c echo.Context) error {
-	id := c.Param("id")
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err)
+	}
 
-	// Делаем что-то с полученным идентификатором, например, возвращаем его в ответе
-	return c.String(http.StatusOK, "getPhotoHandler: Photo ID: "+id)
+	photo, err := a.DB.GetPhoto(id)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err)
+	}
+
+	return c.JSON(http.StatusOK, photo)
 
 }
 
 func (a *App) DelPhotoHandler(c echo.Context) error {
-	id := c.Param("id")
+	ParamID := c.Param("id")
+	id, err := strconv.Atoi(ParamID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error()) //fixme
+	}
 
-	// Делаем что-то с полученным идентификатором, например, возвращаем его в ответе
-	return c.String(http.StatusOK, "delPhotoHandler: Photo ID: "+id)
+	err = a.DB.DelPhoto(id)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error()) //fixme
+	}
+
+	return c.JSON(http.StatusOK, ParamID)
 
 }
-func imgToFile(file *multipart.FileHeader, name string) error {
 
-	// Открываем файл, который был загружен
-	src, err := file.Open()
+func (a *App) ShowPhotoHandler(c echo.Context) error {
+	ParamID := c.Param("id")
+	id, err := strconv.Atoi(ParamID)
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, err.Error()) //fixme
 	}
-	defer src.Close()
 
-	// Открываем целевой файл для записи
-	dst, err := os.Create("storage/images/" + name + ".jpg")
+	photo, err := a.DB.GetPhoto(id)
 	if err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, err)
 	}
-	defer dst.Close()
 
-	// Копируем содержимое файла из тела запроса в целевой файл
-	if _, err = io.Copy(dst, src); err != nil {
-		return err
+	image, err := os.Open(photo.ImgPath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
 	}
-	return nil
+	defer image.Close()
+
+	return c.Stream(http.StatusOK, "image/jpeg", image)
+}
+
+func (a *App) ShowPreviewHandler(c echo.Context) error {
+	ParamID := c.Param("id")
+	id, err := strconv.Atoi(ParamID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error()) //fixme
+	}
+
+	photo, err := a.DB.GetPhoto(id)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err)
+	}
+
+	preview, err := os.Open(photo.PrevPath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer preview.Close()
+
+	return c.Stream(http.StatusOK, "image/jpeg", preview)
+
+}
+
+func imgToFile(name string, file *multipart.FileHeader, path string) (string, error) {
+
+	original, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer original.Close()
+
+	imgFile, err := os.Create(path)
+	if err != nil {
+		return "", err
+	}
+	defer imgFile.Close()
+
+	if _, err = io.Copy(imgFile, original); err != nil {
+		return "", err
+	}
+
+	return path, nil
+
+}
+
+func previewToFile(name, pathToOriginal, pathPreview string) (string, error) {
+
+	previewFile, err := os.Create(pathPreview)
+	if err != nil {
+		return "", err
+	}
+	defer previewFile.Close()
+
+	srcImage, err := imaging.Open(pathToOriginal)
+	if err != nil {
+		return "", err
+	}
+
+	dstImage128 := imaging.Resize(srcImage, 128, 128, imaging.Lanczos)
+
+	err = imaging.Save(dstImage128, pathPreview)
+	if err != nil {
+		return "", err
+	}
+	return pathPreview, nil
 }
 
 func genFileName() string {
+	// todo cделать уникальным
 	//это не уникальное значение.
 	//Теоретически, при моей частоте процессора 5 GHz период одного такта равен ~0.1 нс,
-	// возможно, что инструкция выполнятс 2 раза в одну наносекунду
+	// возможно, что инструкция выполнятся 2 раза в одну наносекунду🤡
+	//можно сделать хэш
 
 	currentTime := time.Now().UnixNano()
 	return strconv.FormatInt(currentTime, 10)
