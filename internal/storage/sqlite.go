@@ -12,7 +12,7 @@ type SqliteStorage struct {
 
 func GetStorage(cfg *config.Config) *SqliteStorage {
 	// Открываем соединение с базой данных SQLite
-	db, err := sql.Open("sqlite3", cfg.DataSourceName)
+	db, err := sql.Open("sqlite3", cfg.DataSourcePath)
 	if err != nil {
 		panic(err)
 	}

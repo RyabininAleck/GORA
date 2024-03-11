@@ -6,14 +6,14 @@ package config
 // но чтобы не переписывать сделаем мок
 type Config struct {
 	Port           string
-	DBConnURL      string
-	DataSourceName string
+	DataSourcePath string
+	ImgFileStorage string
 }
 
 func GetConfig() *Config {
 	return &Config{
 		Port:           ":5123",
-		DBConnURL:      "",
-		DataSourceName: "./sqlite.db",
+		DataSourcePath: "./storage/sqlite.db",
+		ImgFileStorage: "storage/images/", //todo
 	}
 }
