@@ -2,7 +2,9 @@ package storage
 
 import (
 	"GORAbackend/internal/config"
+	"GORAbackend/internal/models"
 	"database/sql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -32,7 +34,38 @@ func GetStorage(cfg *config.Config) *SqliteStorage {
 	}
 	// todo	defer db.Close()
 
+	err = db.Ping()
+	if err != nil {
+		panic(err)
+	}
+
 	return &SqliteStorage{db}
+}
+
+func (sqlite *SqliteStorage) AddCase(c *models.Case) (CaseId uint, err error) {
+
+	return 1, nil
+}
+
+func (sqlite *SqliteStorage) DelCase(caseId string) error {
+
+	return nil
+}
+
+func (sqlite *SqliteStorage) UpdateCase(caseId string, c *models.Case) error {
+
+	return nil
+}
+
+func (sqlite *SqliteStorage) GetCases(id string) ([]models.Case, error) {
+
+	return []models.Case{{
+		Name:     "exampleName",
+		CaseId:   1,
+		Duration: 10,
+		Sound:    "exampleSound",
+		Index:    0,
+	}}, nil
 }
 
 //func (sqlite *SqliteStorage) GetPhotoList() ([]models.Photo, error) {
